@@ -18,6 +18,9 @@ const Mapcomponent1 = () => {
   const [popup, setPopup] = useState(null);
   const [isLoading, setIsLoading] = useState(true); // 로딩 상태 추가
   const [updateTime, setUpdateTime] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchError, setSearchError] = useState('');
+
 
 
   // API에서 인구 밀도 데이터 가져오기
@@ -184,7 +187,7 @@ const Mapcomponent1 = () => {
     혼잡도: ${congestionLevel}
   `;
       if (popup) popup.remove();
-      const newPopup = new mapboxgl.Popup({closeButton: true})
+      const newPopup = new mapboxgl.Popup({ closeButton: true })
         .setLngLat(coordinates)
         .setHTML(popupHtml)
         .addTo(map);
@@ -245,6 +248,32 @@ const Mapcomponent1 = () => {
     marginRight: '10px',
   });
 
+  const handleSearch = () => {
+    const trimmedSearchTerm = searchTerm.trim();
+
+    const areaData = areaJson.features.find(
+      feature => feature.properties.AREA_NM === trimmedSearchTerm
+    );
+
+    if (areaData) {
+      if (areaData.geometry.type === 'Polygon') {
+        const [lng, lat] = areaData.geometry.coordinates[0][0];
+        map.flyTo({
+          center: [lng, lat],
+          zoom: 14,
+          essential: true,
+        });
+      } else {
+        setSearchError(`"${trimmedSearchTerm}"의 좌표를 찾을 수 없습니다.`);
+        return;
+      }
+
+      setSearchError(null);
+    } else {
+      setSearchError(`"${trimmedSearchTerm}"에 해당하는 구역을 찾을 수 없습니다.`);
+    }
+  };
+
 
   return (
     <div>
@@ -252,6 +281,68 @@ const Mapcomponent1 = () => {
       <div
         ref={mapContainer}
         style={{ width: '100%', height: '100vh' }} />
+
+      {/* 검색 입력창 */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          backgroundColor: 'white',
+          padding: '10px',
+          borderRadius: '5px',
+          boxShadow: '0 2px 5px rgba(0,0,0,0.3)',
+          zIndex: 1000,
+        }}
+      >
+        <input
+          type="text"
+          value={searchTerm}
+          placeholder="구역 이름을 입력하세요"
+          onChange={e => setSearchTerm(e.target.value)}
+          style={{
+            padding: '8px',
+            width: '200px',
+            borderRadius: '5px',
+            border: '1px solid #ccc',
+          }}
+        />
+        <button
+          onClick={handleSearch}
+          style={{
+            marginLeft: '10px',
+            padding: '8px 12px',
+            backgroundColor: 'blue',
+            color: 'white',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer',
+          }}
+        >
+          검색
+        </button>
+      </div>
+
+      {/* 에러 메시지 */}
+      {searchError && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '80px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: '#ffcccc',
+            padding: '10px',
+            borderRadius: '5px',
+            boxShadow: '0 2px 5px rgba(0,0,0,0.3)',
+            zIndex: 1000,
+            color: 'red',
+          }}
+        >
+          {searchError}
+        </div>
+      )}
 
       {/* 범례 */}
       <div style={legendStyle}>

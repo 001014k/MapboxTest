@@ -5,7 +5,7 @@ import Mapcomponent1 from './Mapcomponent1';
 function App() {
   return (
     <div className="App">
-      <Mapcomponent/>
+      <Mapcomponent1/>
     </div>
   );
 }
