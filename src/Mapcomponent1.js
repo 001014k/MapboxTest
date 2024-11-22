@@ -2,7 +2,6 @@
 // 브라우저 열자마자 인구 혼잡도 바로 불러오게 자동으로 설정
 // 30분마다 데이터를 받아와 새로고침 기능 설정
 // 범례추가 및 api 새로고침 시간
-// 팝업창 추가
 // mapcomponent1.js
 import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
@@ -20,6 +19,9 @@ const Mapcomponent1 = () => {
   const [updateTime, setUpdateTime] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchError, setSearchError] = useState('');
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [selectedAreaData, setSelectedAreaData] = useState(null);
 
 
 
@@ -174,28 +176,32 @@ const Mapcomponent1 = () => {
         },
       });
     }
+
     map.on('click', 'population-polygon', (e) => {
       const { AREA_NM, populationMin, populationMax, congestionLevel } = e.features[0].properties;
-      const coordinates = e.lngLat;
-      // populationData에서 지역에 대한 정보 가져오기
+
       const data = populationData[AREA_NM];
-      // 값이 존재하는지 확인 후 팝업 내용 작성
-      const popupHtml = `
-    <strong>${AREA_NM}</strong><br>
-    최소 인구수: ${data?.populationMin || 'N/A'}<br>
-    최대 인구수: ${data?.populationMax || 'N/A'}<br>
-    혼잡도: ${congestionLevel}
-  `;
-      if (popup) popup.remove();
-      const newPopup = new mapboxgl.Popup({ closeButton: true })
-        .setLngLat(coordinates)
-        .setHTML(popupHtml)
-        .addTo(map);
-      setPopup(newPopup);
-      // 팝업 내의 '닫기' 버튼에 대한 aria-hidden 처리
-      const popupCloseButton = newPopup.getElement().querySelector('.mapboxgl-popup-close-button');
-      if (popupCloseButton) {
-        popupCloseButton.removeAttribute('aria-hidden'); // aria-hidden="true" 속성 제거
+      if (data) {
+        setSelectedAreaData({
+          AREA_NM,
+          populationMin: data.populationMin,
+          populationMax: data.populationMax,
+          congestionLevel: data.congestionLevel,
+        });
+        setIsPanelOpen(true);
+      }else {
+        setSelectedAreaData(null);
+        setIsPanelOpen(false); // 패널 닫기
+      }
+    });
+
+    // 지도 전체 클릭 이벤트 (구역 외부 클릭 처리)
+    map.on('click', (e) => {
+      const features = map.queryRenderedFeatures(e.point, { layers: ['population-polygon'] });
+
+      if (features.length === 0) {
+        setSelectedAreaData(null);
+        setIsPanelOpen(false); // 패널 닫기
       }
     });
 
@@ -206,8 +212,28 @@ const Mapcomponent1 = () => {
     map.on('mouseleave', 'population-polygon', () => {
       map.getCanvas().style.cursor = '';
     });
+
     console.log("3D polygon data added to map");
   }, [map, populationData]);
+
+  const panelStyle = {
+    position: 'fixed',
+    bottom: isFullScreen ? '0' : '0',
+    left: 0,
+    right: 0,
+    height: isFullScreen ? '95vh' : '30vh',
+    backgroundColor: 'white',
+    transition: 'height 0.3s ease-in-out',
+    zIndex: 1000,
+    overflowY: 'auto',
+    padding: '20px',
+    borderRadius: isFullScreen ? '20px 20px 0 0' : '20px 20px 0 0',
+  };
+
+  const toggleFullScreen = () => {
+    setIsFullScreen((prev) => !prev);
+  };
+
 
   const loadingScreenStyle = {
     position: 'fixed',
@@ -281,6 +307,18 @@ const Mapcomponent1 = () => {
       <div
         ref={mapContainer}
         style={{ width: '100%', height: '100vh' }} />
+
+      {isPanelOpen && selectedAreaData && (
+        <div style={panelStyle}>
+          <h3>{selectedAreaData.AREA_NM}</h3>
+          <p>최소 인구수: {selectedAreaData.populationMin}</p>
+          <p>최대 인구수: {selectedAreaData.populationMax}</p>
+          <p>혼잡도: {selectedAreaData.congestionLevel}</p>
+          <button onClick={toggleFullScreen}>
+            {isFullScreen ? '닫기' : '전체 화면'}
+          </button>
+        </div>
+      )}
 
       {/* 검색 입력창 */}
       <div
